@@ -3,12 +3,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 
-kjv_bible_df = pd.read_json('kjv-scriptures-json.txt')
-kjv_bible_df_small = kjv_bible_df[['volume_title', 'book_title', 'verse_title', 'scripture_text']]
-
-# kjv_bible_df_small = kjv_bible_df_small[kjv_bible_df_small['book_title'] == 'Jude']
-# kjv_bible_df.sample(30)
-
 df = pd.read_json('lds-scriptures-json.txt')
 df = df[['volume_title', 'book_title', 'verse_title', 'scripture_text']]
 df = df[df['volume_title'] == 'Book of Mormon']
