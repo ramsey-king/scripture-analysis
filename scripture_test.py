@@ -1,41 +1,68 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
-
+import altair as alt
+import re
 
 df = pd.read_json('lds-scriptures-json.txt')
 df = df[['volume_title', 'book_title', 'verse_title', 'scripture_text']]
-df = df[df['volume_title'] == 'Book of Mormon']
 
-# st.set_page_config(page_title='Book of Mormon', layout='wide')
+st.set_page_config(layout='wide')
+
 # Streamlit app
-st.title('Book of Mormon Analysis')
+st.title('Scripture Analysis')
 
+with st.sidebar:
+    book_selection = st.multiselect(
+        'Choose your book volume:',
+        ['Old Testament', 'New Testament', 'Book of Mormon',
+         'Doctrine and Covenants', 'Pearl of Great Price']
+    )
 
-# Create a function to filter by phrase
-def phrase_filter(df, phrase):
-    return df[df['scripture_text'].str.contains(phrase, case=False)]
+# Create a function to filter by phrase and book volume
+def filter_data(df, phrase, book_volume):
+    clean_phrase = re.sub(r'[^\w\s]', '', phrase).lower()
 
+    if not book_volume:  # Check if any book is selected
+        filtered_df = df
+    else:
+        filtered_df = df[df['volume_title'].isin(book_volume)]
+
+    return filtered_df[
+        filtered_df['scripture_text'].str.replace(r'[^\w\s]', '', regex=True).str.lower().str.contains(clean_phrase, case=False)
+    ]
 
 # Get user input
 phrase = st.text_input('Enter a phrase to search for')
 
-# Filter the dataframe for the inputted phrase
-df_filtered = df[df['scripture_text'].str.contains(phrase)]
+# Filter the dataframe for the inputted phrase and selected book volume
+df_filtered = filter_data(df, phrase, book_selection)
 
-# Group the filtered dataframe by book_title and count occurrences of phrase
-df_grouped = df_filtered.groupby(['book_title'])['scripture_text'].apply(
-    lambda x: x.str.contains(phrase).sum()
-).reset_index(name='count')
+df_grouped = df_filtered.groupby('book_title')['scripture_text'].count().reset_index(name='count')
 
 # Create bar chart
-fig, ax = plt.subplots(figsize=(8, 6))
-ax.barh(df_grouped['book_title'], df_grouped['count'])
-ax.set_xlabel('Occurrences')
-ax.set_ylabel('Book')
-ax.set_title(f'Occurrences of "{phrase}" by Book')
+interval = alt.selection_single()
+fig = alt.Chart(df_grouped).mark_bar().encode(
+    x='count:Q',
+    y=alt.Y('book_title', sort='-x')
+).add_selection(
+    interval
+)
+
+text = fig.mark_text(
+    align='right',
+    baseline='middle',
+    dy=-5
+).encode(
+    text='book_title:O',
+    tooltip='count:Q'
+)
+
+fig_labels = (fig + text).properties(
+    width=alt.Step(50)
+)
 
 # Show the bar chart and table
-st.pyplot(fig)
-st.text('Number of occurrences: '+str(len(df_filtered)))
-st.dataframe(df_filtered[['verse_title', 'scripture_text']],use_container_width=True)
+st.altair_chart(fig, use_container_width=True)
+st.text('Number of occurrences: ' + str(len(df_filtered)))
+st.dataframe(df_filtered[['verse_title', 'scripture_text']], use_container_width=True)
+
